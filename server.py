@@ -4,6 +4,7 @@ import datetime
 from functools import partial
 import os
 import concurrent
+import tempfile
 from fastapi import FastAPI, Form, File, UploadFile, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -113,24 +114,32 @@ async def create_image_note(
     post_time: str = Form(None),
     images: list[UploadFile] = File(...)
 ):
+
     image_paths = []
+    temp_files = []  # 用于存储临时文件对象
+
     for file in images:
         if file.filename == '':
             raise HTTPException(status_code=400, detail="No selected file")
         filename = secure_filename(file.filename)
-        file_path = os.path.join('./images', filename)
-        with open(file_path, "wb") as buffer:
-            buffer.write(await file.read())
-        image_paths.append(file_path)
+        
+        # 创建一个临时文件
+        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(filename)[1], mode='wb', dir='./images') as temp:
+            file_path = temp.name
+            temp.write(await file.read())
+            image_paths.append(file_path)
+            temp_files.append(temp)  # 保存临时文件对象
 
     try:
-       
-        note = await  asyncio.to_thread(create_image_note,cookie,title, desc, image_paths, is_private, post_time)
-         
+        note = await asyncio.to_thread(create_image_note, cookie, title, desc, image_paths, is_private, post_time)
         return JSONResponse(content=note, status_code=200)
-    except (SignError, DataFetchError) as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
+    finally:
+        # 删除临时文件
+        for temp_file in temp_files:
+            try:
+                os.remove(temp_file.name)
+            except OSError as e:
+                print(f"Error deleting {temp_file.name}: {e}")
 
 def create_xhs_client(cookie):
     global signBrowser
