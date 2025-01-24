@@ -5,3 +5,4 @@ requests
 xhs
 playwright
 uvicorn
+python-multipart

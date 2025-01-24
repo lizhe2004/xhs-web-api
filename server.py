@@ -44,7 +44,7 @@ class BrowserInstance:
         self.instance = sync_playwright().start()
         self.chromium = self.instance.chromium
         self.browser = self.chromium.launch(headless=True)
-        self.context = self.browser.new_context()
+        self.context = self.browser.new_context(user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36')
         self.context.add_init_script(path=stealth_js_path)
         self.page = self.context.new_page()
         self.A1= ""
@@ -52,9 +52,17 @@ class BrowserInstance:
     def reset_instance(self,a1=None):
         print("初始化页面实例")
         self.A1= ""
-        self.page.goto("https://www.xiaohongshu.com")
-        print("正在跳转至小红书首页")
-        # time.sleep(1)
+        for _ in range(2):
+            try:
+                self.page.goto("https://www.xiaohongshu.com/explore")
+                print("正在跳转至小红书首页")
+                time.sleep(2)
+                break
+            except Exception as e:
+                     
+                    print("第%d次打开小红书首页" % (_ + 1),e)
+                    print(self.page.url)
+            
         cookies = self.context.cookies()
         for cookie in cookies:
             if cookie["name"] == "a1":
@@ -82,7 +90,7 @@ class BrowserInstance:
         print(self.page.url)
         for _ in range(10):
             try:
-                print(self.page.url)
+                print("生成签名之前的页面地址"+self.page.url)
                 encrypt_params = self.page.evaluate("([url, data]) => window._webmsxyw(url, data)", [uri, data])
                 return {
                     "x-s": encrypt_params["X-s"],
@@ -91,7 +99,7 @@ class BrowserInstance:
             except Exception as e:
                 # 这儿有时会出现 window._webmsxyw is not a function 或未知跳转错误，因此加一个失败重试趴
                 print("第%d次尝试签名失败，尝试重置浏览器" % (_ + 1),e)
-                print(self.page.url)
+                print("生成签名之后的页面地址"+self.page.url)
                 self.reset_instance(a1)
         raise Exception("重试了这么多次还是无法签名成功，寄寄寄")
 
@@ -106,7 +114,7 @@ def sign(uri, data=None, a1="", web_session=""):
 executor = ThreadPoolExecutor(max_workers=5)
 
 @app.post("/create_image_note")
-async def create_image_note(
+async def create_image_note_api(
     cookie: str = Form(...),
     title: str = Form(...),
     desc: str = Form(...),
@@ -132,6 +140,8 @@ async def create_image_note(
 
     try:
         note = await asyncio.to_thread(create_image_note, cookie, title, desc, image_paths, is_private, post_time)
+        print("创建笔记成功")
+        beauty_print(note)
         return JSONResponse(content=note, status_code=200)
     finally:
         # 删除临时文件
@@ -153,6 +163,7 @@ def create_image_note(cookie,title, desc, image_paths,is_private,post_time):
     xhs_client = create_xhs_client(cookie=cookie)
     try:
         note =  xhs_client.create_image_note(title, desc, image_paths, is_private=is_private, post_time=post_time)
+        return note
     except (SignError, DataFetchError) as e:
             raise HTTPException(status_code=400, detail=str(e))
 
