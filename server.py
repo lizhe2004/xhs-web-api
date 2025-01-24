@@ -87,7 +87,7 @@ class BrowserInstance:
             
             self.update_a1(a1)
         print("url:%s data:%s a1:%s" % (uri, data, a1))
-        print(self.page.url)
+         
         for _ in range(10):
             try:
                 print("生成签名之前的页面地址"+self.page.url)
@@ -99,9 +99,9 @@ class BrowserInstance:
             except Exception as e:
                 # 这儿有时会出现 window._webmsxyw is not a function 或未知跳转错误，因此加一个失败重试趴
                 print("第%d次尝试签名失败，尝试重置浏览器" % (_ + 1),e)
-                print("生成签名之后的页面地址"+self.page.url)
+                print("生成签名失败之后查看当前页面地址"+self.page.url)
                 self.reset_instance(a1)
-        raise Exception("重试了这么多次还是无法签名成功，寄寄寄")
+        raise Exception("重试了这么多次还是无法签名成功")
 
 
 def sign(uri, data=None, a1="", web_session=""):
