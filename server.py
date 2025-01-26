@@ -15,7 +15,9 @@ from xhs import XhsClient
 from xhs.exception import SignError, DataFetchError
 import time
 from playwright.sync_api import sync_playwright
-from playwright.async_api import async_playwright
+# from playwright.async_api import async_playwright
+from pydantic import BaseModel
+
 
 app = FastAPI()
 
@@ -145,6 +147,53 @@ async def create_image_note_api(
             temp.write(await file.read())
             image_paths.append(file_path)
             temp_files.append(temp)  # 保存临时文件对象
+
+    try:
+        note = await asyncio.to_thread(create_image_note, cookie, title, desc, image_paths, is_private, post_time)
+        print("创建笔记成功")
+        beauty_print(note)
+        return JSONResponse(content=note, status_code=200)
+    finally:
+        # 删除临时文件
+        for temp_file in temp_files:
+            try:
+                os.remove(temp_file.name)
+            except OSError as e:
+                print(f"Error deleting {temp_file.name}: {e}")
+
+
+class CreateImageNoteRequest(BaseModel):
+    cookie: str
+    title: str
+    desc: str
+    is_private: bool = False
+    post_time: str = None
+    image_urls: list[str]
+
+@app.post("/create_image_note_from_urls")
+async def create_image_note_from_urls(request: CreateImageNoteRequest):
+    cookie = request.cookie
+    title = request.title
+    desc = request.desc
+    is_private = request.is_private
+    post_time = request.post_time
+    image_urls = request.image_urls
+
+    image_paths = []
+    temp_files = []  # 用于存储临时文件对象
+
+    for url in image_urls:
+        try:
+            response = requests.get(url)
+            response.raise_for_status()
+            filename = secure_filename(url.split('/')[-1])
+            with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(filename)[1], mode='wb', dir='./images') as temp:
+                file_path = temp.name
+                temp.write(response.content)
+                image_paths.append(file_path)
+                temp_files.append(temp)  # 保存临时文件对象
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Failed to download image from {url}: {str(e)}")
 
     try:
         note = await asyncio.to_thread(create_image_note, cookie, title, desc, image_paths, is_private, post_time)
