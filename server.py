@@ -36,8 +36,6 @@ class BrowserInstance:
         self.reset_instance()
     def start(self):
         print("启动浏览器")
-        self.instance = sync_playwright().start()
-        self.chromium = self.instance.chromium
         if self.instance:
             self.instance.stop()
         self.A1= ""
@@ -75,11 +73,19 @@ class BrowserInstance:
                                 {'name': 'a1', 'value': a1, 'domain': ".xiaohongshu.com", 'path': "/"}]
                             )
             print("更新cookie")
-            self.page.reload()
-            print("重新加载页面")
-            self.A1 = a1
-            time.sleep(3)
 
+            for _ in range(2):
+                try:
+                    self.page.reload()
+                    print("重新加载页面")
+                    self.A1 = a1
+                    time.sleep(3)
+                    break
+                except Exception as e:
+                        
+                        print("第%d次更新cookie重新加载页面异常" % (_ + 1),e)
+                        print(self.page.url)
+            
 
     def sign(self,uri, data, a1, web_session):
         if(a1!=None and a1!=self.A1):
@@ -106,6 +112,8 @@ class BrowserInstance:
 
 def sign(uri, data=None, a1="", web_session=""):
     global signBrowser
+    if(signBrowser==None):
+        signBrowser = BrowserInstance()
     print("开始签名啦！！！！")
     return signBrowser.sign(uri, data, a1, web_session)
 
@@ -152,9 +160,7 @@ async def create_image_note_api(
                 print(f"Error deleting {temp_file.name}: {e}")
 
 def create_xhs_client(cookie):
-    global signBrowser
-    if(signBrowser==None):
-        signBrowser = BrowserInstance()
+
     xhs_client = XhsClient(cookie=cookie, sign=sign)
     return xhs_client
 
