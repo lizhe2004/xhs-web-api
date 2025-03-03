@@ -42,6 +42,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 安装 Playwright 及其浏览器依赖
 RUN playwright install
 
+# 创建临时存储图片的文件夹
+RUN mkdir ./images
+
 # 复制项目文件到工作目录
 COPY . .
 
